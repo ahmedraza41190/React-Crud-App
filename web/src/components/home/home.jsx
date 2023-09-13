@@ -1,287 +1,192 @@
-import React, { useEffect, useState } from 'react';
-import axios from 'axios';
-import Swal from 'sweetalert2';
-import './home.css';
-import { Post, NoPost } from '../post/post';
-// import {  } from "react-bootstrap-icons"
+import { useState, useRef, useEffect } from "react";
+import axios from "axios";
+import "./home.css";
+
+const baseUrl = "http://localhost:5001";
 
 const Home = () => {
-  const [posts, setPosts] = useState([]);
+  const postTitleInputRef = useRef(null);
+  const postBodyInputRef = useRef(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [alert, setAlert] = useState(null);
+  const [editAlert, setEditAlert] = useState(null);
+
+  const [allPosts, setAllPosts] = useState([]);
+  const [toggleRefresh, setToggleRefresh] = useState(false);
+
+  const getAllPost = async () => {
+    try {
+      setIsLoading(true);
+      const response = await axios.get(`${baseUrl}/api/v1/posts`);
+      console.log(response.data);
+
+      setIsLoading(false);
+      setAllPosts([...response.data]);
+    } catch (error) {
+      console.log(error.data);
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    renderPost();
-  }, []);
+    getAllPost();
 
-  const createPost = (event) => {
-    event.preventDefault();
-    const postTitle = document.querySelector("#title");
-    const postText = document.querySelector("#text");
+    return () => {
+      // cleanup function
+    };
+  }, [toggleRefresh]);
 
-    axios
-      .post(`/api/v1/post`, {
-        title: postTitle.value,
-        text: postText.value,
-      })
-      .then(function (response) {
-        console.log(response.data);
-        Swal.fire({
-          icon: 'success',
-          title: 'Post Added',
-          timer: 1000,
-          showConfirmButton: false,
-        });
-        renderPost();
-      })
-      .catch(function (error) {
-        console.log(error);
-        document.querySelector(".result").innerHTML = "Error in post submission";
+  const submitHandler = async (e) => {
+    e.preventDefault();
+
+    try {
+      setIsLoading(true);
+      const response = await axios.post(`${baseUrl}/api/v1/post`, {
+        title: postTitleInputRef.current.value,
+        text: postBodyInputRef.current.value,
       });
 
-    postTitle.value = "";
-    postText.value = "";
+      setIsLoading(false);
+      console.log(response.data);
+      setAlert(response.data.message);
+      setToggleRefresh(!toggleRefresh);
+      // getAllPost();
+    } catch (error) {
+      // handle error
+      console.log(error?.data);
+      setIsLoading(false);
+    }
   };
 
-  const renderPost = () => {
-    axios
-      .get(`/api/v1/posts`)
-      .then(function (response) {
-        let fetchedPosts = response.data;
-        console.log("fetched posts", fetchedPosts);
-        setPosts(fetchedPosts);
-      })
-      .catch(function (error) {
-        console.log(error);
+  const deletePostHandler = async (_id) => {
+    try {
+      setIsLoading(true);
+      const response = await axios.delete(`${baseUrl}/api/v1/post/${_id}`, {
+        title: postTitleInputRef.current.value,
+        text: postBodyInputRef.current.value,
       });
+
+      setIsLoading(false);
+      console.log(response.data);
+      setAlert(response.data.message);
+      setToggleRefresh(!toggleRefresh);
+    } catch (error) {
+      // handle error
+      console.log(error?.data);
+      setIsLoading(false);
+    }
   };
 
-  const deletePost = (postId) => {
-    Swal.fire({
-      title: 'Enter Password',
-      input: 'password',
-      inputAttributes: {
-        autocapitalize: 'off'
-      },
-      showCancelButton: true,
-      cancelButtonColor: "#24232c",
-      confirmButtonText: 'Delete',
-      confirmButtonColor: "#24232c",
-      showLoaderOnConfirm: true,
-      preConfirm: (password) => {
-        if (password === '12345') {
+  const editSaveSubmitHandler = async (e) => {
+    e.preventDefault();
+    const _id = e.target.elements[0].value;
+    const title = e.target.elements[1].value;
+    const text = e.target.elements[2].value;
 
-          return axios.delete(`/api/v1/post/${postId}`)
-            .then(response => {
-              // console.log(response.data);
-              Swal.fire({
-                icon: 'success',
-                title: 'Post Deleted',
-                timer: 1000,
-                showConfirmButton: false
-              });
+    try {
+      setIsLoading(true);
+      const response = await axios.put(`${baseUrl}/api/v1/post/${_id}`, {
+        title: title,
+        text: text,
+      });
 
-              renderPost();
-            })
-            .catch(error => {
-              console.log(error.data);
-              Swal.fire({
-                icon: 'error',
-                title: 'Failed to delete post',
-                showConfirmButton: false
-              });
-            });
-        } else {
-
-          return Swal.fire({
-            icon: 'error',
-            title: 'Invalid Password',
-            text: 'Please enter correct password',
-            timer: 1000,
-            showConfirmButton: false
-          });
-        }
-      }
-    });
-  }
-
-  function editPost(postId) {
-    Swal.fire({
-      title: 'Enter Password',
-      input: 'password',
-      inputAttributes: {
-        autocapitalize: 'off'
-      },
-      showCancelButton: true,
-      cancelButtonColor: "#24232c",
-      confirmButtonText: 'Edit',
-      confirmButtonColor: "#24232c",
-      showLoaderOnConfirm: true,
-      preConfirm: (password) => {
-        if (password === '12345') {
-
-          axios.get(`/api/v1/post/${postId}`)
-            .then(response => {
-              const post = response.data;
-
-              Swal.fire({
-                title: 'Edit Post',
-                html: `
-                  <input type="text" id="editTitle" class="swal2-input" placeholder="Post Title" value="${post.title}" required>
-                  <textarea id="editText" class="swal2-input text" placeholder="Post Text" required>${post.text}</textarea>
-                `,
-                showCancelButton: true,
-                cancelButtonColor: "#24232c",
-                confirmButtonText: 'Update',
-                confirmButtonColor: "#24232c",
-                preConfirm: () => {
-
-                  const editedTitle = document.getElementById('editTitle').value;
-                  const editedText = document.getElementById('editText').value;
-
-                  if (!editedTitle.trim() || !editedText.trim()) {
-                    Swal.showValidationMessage('Title and text are required');
-                    return false;
-                  }
-
-                  return axios.put(`/api/v1/post/${postId}`, {
-                    title: editedTitle,
-                    text: editedText
-                  })
-                    .then(response => {
-                      // console.log(response.data);
-                      Swal.fire({
-                        icon: 'success',
-                        title: 'Post Updated',
-                        timer: 1000,
-                        showConfirmButton: false
-                      });
-                      renderPost()
-                    })
-                    .catch(error => {
-                      // console.log(error.response.data);
-                      Swal.fire({
-                        icon: 'error',
-                        title: 'Failed to update post',
-                        text: error.response.data,
-                        showConfirmButton: false
-                      });
-                    });
-                }
-              });
-            })
-            .catch(error => {
-              // console.log(error.response.data);
-              Swal.fire({
-                icon: 'error',
-                title: 'Failed to fetch post',
-                text: error.response.data,
-                showConfirmButton: false
-              });
-            });
-        } else {
-
-          Swal.fire({
-            icon: 'error',
-            title: 'Invalid Password',
-            text: 'Please enter correct password',
-            showConfirmButton: false
-          });
-        }
-      }
-    });
-  }
-
-  // delete all
-
-  function deleteAllPosts() {
-    Swal.fire({
-      title: 'Enter Password',
-      input: 'password',
-      inputAttributes: {
-        autocapitalize: 'off'
-      },
-      showCancelButton: true,
-      cancelButtonColor: "#24232c",
-      confirmButtonText: 'Delete All Posts',
-      confirmButtonColor: "#24232c",
-      showLoaderOnConfirm: true,
-      preConfirm: (password) => {
-        if (password === '12345') {
-          return axios.delete(`/api/v1/posts/all`, {
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            data: {
-              password: password
-            }
-          })
-            .then(response => {
-              // console.log(response.data);
-              Swal.fire({
-                icon: 'success',
-                title: 'All Posts Deleted',
-                timer: 1000,
-                showConfirmButton: false
-              });
-              renderPost();
-            })
-            .catch(error => {
-              // console.log(error.data);
-              Swal.fire({
-                icon: 'error',
-                title: 'Failed to delete all posts',
-                showConfirmButton: false
-              });
-            });
-        } else {
-          return Swal.fire({
-            icon: 'error',
-            title: 'Invalid Password',
-            text: 'Please enter correct password',
-            timer: 1000,
-            showConfirmButton: false
-          });
-        }
-      }
-    });
-  }
+      setIsLoading(false);
+      console.log(response.data);
+      setAlert(response?.data?.message);
+      setToggleRefresh(!toggleRefresh);
+    } catch (error) {
+      // handle error
+      console.log(error?.data);
+      setIsLoading(false);
+    }
+  };
 
   return (
-    <div>
-      <div className="space-around row">
-        <h1 className="green"> React CRUD</h1>
-      </div>
+    <div className="main">
+      <h1 className="h1heading">CRUD APP</h1>
+      <form onSubmit={submitHandler}>
+        <label htmlFor="postTitleInput" className="title"> Post Title:</label>
+        <input className="input" id="postTitleInput" type="text" required minLength={2} maxLength={20} ref={postTitleInputRef} />
+        <br />
 
-      <form onSubmit={createPost}>
-        <h2>Create New Post</h2>
-        <label htmlFor="title" className="green">
-          Title
-        </label>
-        <input required id="title" type="text" placeholder="Enter Title" className="input" />
-        <label htmlFor="text" className="green">
-          Text
-        </label>
-        <textarea required id="text" placeholder="Enter Text" className="input"></textarea>
-        <div className='row'>
-        <button type="submit" className="button">
-          Post
-        </button>
-        <button type="button" className="button" onClick={deleteAllPosts}>
-          Delete All
-        </button>
-        </div>
+        <label htmlFor="postBodyInput" className="title"> Post Text:</label>
+        <textarea
+          className="input"
+          id="postBodyInput"
+          type="text"
+          required
+          minLength={2}
+          maxLength={999}
+          ref={postBodyInputRef}
+        ></textarea>
+        <br />
+
+        <button className="button" type="submit">Publish Post</button>
+        <span className="loading">
+          {alert && alert}
+          {isLoading && "Loading..."}
+        </span>
       </form>
-      <h2 className="green">Posts</h2>
-      <div className="result">
-        {posts.length === 0 ? (
-          <NoPost />
-        ) : (
-          posts.map((post, index) => (
-            <Post key={post._id} title={post.title} text={post.text} time={post.time} postId={post._id} del={deletePost} edit={editPost} delAll={deleteAllPosts} />
-          ))
-        )}
+
+      <br />
+
+      <div className="addPost">
+        {allPosts.map((post, index) => (
+          <div key={post._id} className="post">
+            {post.isEdit ? (
+              <form onSubmit={editSaveSubmitHandler} className="editForm">
+                <input className="input" type="text" disabled value={post._id} hidden />
+                <input className="input" defaultValue={post.title} type="text" placeholder="title" />
+                <br />
+                <textarea className="input" defaultValue={post.text} type="text" placeholder="body" />
+                <br />
+                <button className="Ebutton" type="submit">Save</button>
+                <button
+                  className="Ebutton"
+                  type="button"
+                  onClick={() => {
+                    post.isEdit = false;
+                    setAllPosts([...allPosts]);
+                  }}
+                >
+                  Cancel
+                </button>
+              </form>
+            ) : (
+              <div>
+                <h2 className="addPostTitle">{post.title}</h2>
+                <br />
+                <p className="addPostText">{post.text}</p>
+                <br />
+
+                <button
+                  className="Ebutton"
+                  onClick={(e) => {
+                    console.log("click");
+                    allPosts[index].isEdit = true;
+                    setAllPosts([...allPosts]);
+                  }}
+                >
+                  Edit
+                </button>
+
+                <button
+                  className="Dbutton"
+                  onClick={(e) => {
+                    deletePostHandler(post._id);
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+
+        <br />
       </div>
     </div>
   );
 };
 
-export default Home
+export default Home;

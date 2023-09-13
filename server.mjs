@@ -1,19 +1,39 @@
-import express from 'express'
+import express from 'express';
+import cors from 'cors';
 import path from 'path';
 const __dirname = path.resolve();
 
-import apiv1Router from './apiv1/main.mjs'
+import authRouter from './routes/auth.mjs'
+import commentRouter from './routes/comment.mjs'
+import feedRouter from './routes/feed.mjs'
+import postRouter from './routes/post.mjs'
 
-const app = express()
-
-app.use(express.json()); // body parser
-
-app.use("/api/v1", apiv1Router)
 
 app.use(express.static(path.join(__dirname, './web/build')))
 
-const PORT = process.env.PORT || 5001
 
+const app = express();
+app.use(express.json()); // body parser
+app.use(cors())
+
+// /api/v1/login
+app.use("/api/v1", authRouter)
+
+app.use((req, res, next) => { // JWT
+    let token = "valid"
+    if (token === "valid") {
+        next();
+    } else {
+        res.status(401).send({ message: "invalid token" })
+    }
+})
+
+app.use("/api/v1", postRouter) // Secure api
+
+
+
+
+const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => {
-    console.log(`Example app listening on port ${PORT}`)
+    console.log(`Example server listening on port ${PORT}`)
 })
